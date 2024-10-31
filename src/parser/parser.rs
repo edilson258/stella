@@ -290,7 +290,6 @@ impl<'a> Parser<'a> {
     self.parse_precedence(Precedence::Assignment)
   }
 
-  // ! this is a recursive function :(... I think is better than the previous one
   fn parse_precedence(&mut self, precedence: Precedence) -> ast::Expression {
     let mut left = if precedence == Precedence::Unary {
       self.parse_unary_expression()
@@ -302,68 +301,8 @@ impl<'a> Parser<'a> {
       let right = self.parse_precedence(precedence.next());
       left = ast::Expression::new_binary(operator, left, right, token.range);
     }
-
     left
   }
-
-  // fn parse_expression(&mut self) -> ast::Expression {
-  //   self.parse_assignment_expression()
-  // }
-
-  // fn parse_assignment_expression(&mut self) -> ast::Expression {
-  //   let expression = self.parse_or_expression();
-
-  //   if self.match_token(&TokenKind::Assign) {
-  //     let assign_token = self.consume_token();
-  //     let value = self.parse_expression();
-  //     return ast::Expression::new_assign(vec![expression], vec![value], assign_token.range);
-  //   }
-
-  //   expression
-  // }
-
-  // fn parse_or_expression(&mut self) -> ast::Expression {
-  //   self.parse_binary_expression(Self::parse_and_expression, &[TokenKind::Or])
-  // }
-
-  // fn parse_and_expression(&mut self) -> ast::Expression {
-  //   self.parse_binary_expression(Self::parse_equality_expression, &[TokenKind::And])
-  // }
-
-  // fn parse_equality_expression(&mut self) -> ast::Expression {
-  //   self.parse_binary_expression(Self::parse_comparison_expression, &[TokenKind::Equal, TokenKind::NotEqual])
-  // }
-
-  // fn parse_comparison_expression(&mut self) -> ast::Expression {
-  //   self.parse_binary_expression(
-  //     Self::parse_term,
-  //     &[TokenKind::Less, TokenKind::LessEqual, TokenKind::Greater, TokenKind::GreaterEqual],
-  //   )
-  // }
-
-  // fn parse_term(&mut self) -> ast::Expression {
-  //   self.parse_binary_expression(Self::parse_factor, &[TokenKind::Plus, TokenKind::Minus])
-  // }
-
-  // fn parse_factor(&mut self) -> ast::Expression {
-  //   self.parse_binary_expression(Self::parse_unary_expression, &[TokenKind::Star, TokenKind::Slash, TokenKind::Percent])
-  // }
-
-  // fn parse_binary_expression(
-  //   &mut self,
-  //   parse_sub_expression: fn(&mut Self) -> ast::Expression,
-  //   operator_kinds: &[TokenKind],
-  // ) -> ast::Expression {
-  //   let mut left = parse_sub_expression(self);
-
-  //   while let Some(token) = self.match_any_token(operator_kinds) {
-  //     let operator = self.token_to_binary_operator(&token);
-  //     let right = parse_sub_expression(self);
-  //     left = ast::Expression::new_binary(operator, left, right, token.range);
-  //   }
-
-  //   left
-  // }
 
   fn parse_unary_expression(&mut self) -> ast::Expression {
     if let Some(token) = self.match_any_token(&[TokenKind::Minus, TokenKind::Not, TokenKind::Hash]) {
@@ -466,12 +405,15 @@ impl<'a> Parser<'a> {
     let left_range = self.consume_expect_token(TokenKind::LeftBrace).range;
     let mut values = vec![];
     while !self.match_token(&TokenKind::RightBrace) {
-      let key_or_value = self.parse_expression();
-      if self.match_token_and_consume(TokenKind::Assign).is_some() {
+      let peeked = self.lexer.peek_token();
+      if matches!(peeked.kind, TokenKind::Identifier(_)) {
+        let identifier = self.parse_identifier_expression();
+        self.consume_expect_token(TokenKind::Assign);
         let value = self.parse_expression();
-        values.push((key_or_value, Some(value)));
+        values.push((identifier, Some(value)));
       } else {
-        values.push((key_or_value, None));
+        let value = self.parse_expression();
+        values.push((value, None));
       }
       if self.match_token(&TokenKind::RightBrace) {
         break;
@@ -517,9 +459,16 @@ impl<'a> Parser<'a> {
   }
 
   fn parse_require_expression(&mut self) -> ast::Expression {
-    let require_token = self.consume_expect_token(TokenKind::Require);
+    let require_range = self.consume_expect_token(TokenKind::Require).range;
+    self.match_token_and_consume(TokenKind::LeftParen);
     let module_name = self.consume_token();
-    let range = require_token.range;
+    let right_token = self.match_token_and_consume(TokenKind::RightParen);
+
+    let range = if let Some(token) = right_token {
+      create_middle_range(&require_range, &token.range)
+    } else {
+      require_range
+    };
     ast::Expression::new_require(module_name, range)
   }
 

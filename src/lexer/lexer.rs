@@ -60,6 +60,7 @@ impl<'a> Lexer<'a> {
       '[' => self.read_simple_token(TokenKind::LeftBracket),
       ']' => self.read_simple_token(TokenKind::RightBracket),
       '"' => self.read_string(),
+      '\'' => self.read_single_quote_string(),
       '/' => self.read_slash(),
       '0'..='9' => self.read_number(),
       'a'..='z' | 'A'..='Z' | '_' => self.read_keyword_or_identifier(),
@@ -151,6 +152,14 @@ impl<'a> Lexer<'a> {
     self.consume_expect("\"");
     let string = self.read_while(|c| c != '"');
     self.consume_expect_with_custom_error("\"", "unterminated string");
+    let range = self.create_range();
+    Token::new_string(range, string)
+  }
+
+  fn read_single_quote_string(&mut self) -> Token {
+    self.consume_expect("'");
+    let string = self.read_while(|c| c != '\'');
+    self.consume_expect_with_custom_error("'", "unterminated string");
     let range = self.create_range();
     Token::new_string(range, string)
   }

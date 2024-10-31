@@ -66,7 +66,7 @@ impl Token {
       "true" => Token::new(TokenKind::True, range),
       "false" => Token::new(TokenKind::False, range),
       "nil" => Token::new(TokenKind::Nil, range),
-      "type" => Token::new(TokenKind::Type, range),
+      // "type" => Token::new(TokenKind::Type, range),
       "enum" => Token::new(TokenKind::Enum, range),
       "continue" => Token::new(TokenKind::Continue, range),
       "and" => Token::new(TokenKind::And, range),
